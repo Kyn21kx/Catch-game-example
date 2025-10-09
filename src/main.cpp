@@ -4,16 +4,25 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <cmath>
 
 constexpr int32_t WIDTH = 1080;
 constexpr int32_t HEIGHT = 720;
 
-constexpr Color PLAYER_COLOR = BLACK; 
-constexpr Color ENEMY_COLOR = RED; 
+constexpr Color PLAYER_COLOR = BLACK;
+constexpr Color ENEMY_COLOR = RED;
+constexpr int32_t MORTAL_RADIUS = 80;
+constexpr int32_t PLAYER_INDEX = 0;
+constexpr int32_t DISTANCE_IF_PLAYER = 1000;
+
+bool g_isGameOver = false;
 
 std::vector<Entity> g_entities;
 
+
+
 void HandleInput(Entity* entity, float deltaTime) {
+    if(g_isGameOver) return;
     if (entity->type != EEntityType::Player) return;
 
     if (IsKeyDown(KEY_W)) {
@@ -28,6 +37,18 @@ void HandleInput(Entity* entity, float deltaTime) {
     if (IsKeyDown(KEY_D)) {
         entity->position.x+= entity->moveSpeed * deltaTime;
     }
+}
+
+void SpawnPlayer() {
+    Entity player = {
+        .type = EEntityType::Player,
+        .position = Game::Vector2(WIDTH / 2.f, HEIGHT / 2.f),
+        .draw = [](Entity* self) {
+            DrawCircle(self->position.x, self->position.y, 35, PLAYER_COLOR);
+        },
+        .moveSpeed = 500.f
+    };
+    g_entities.push_back(player);
 }
 
 void SpawnEnemy() {
@@ -45,20 +66,50 @@ void Init() {
     InitWindow(WIDTH, HEIGHT, "Game example");
     SetTargetFPS(60);
     g_entities.reserve(100);
-    // Make player entity
-    Entity player = {
-      .type = EEntityType::Player,
-      .position = Game::Vector2(WIDTH / 2.f, HEIGHT / 2.f),
-      .draw = [](Entity* self) {
-            DrawCircle(self->position.x, self->position.y, 35, PLAYER_COLOR);},
-      .moveSpeed = 500.f
-    };
-    g_entities.push_back(player);
+    SpawnPlayer();
     SpawnEnemy();
+}
+
+float CalculateDistanceWithPlayer(const Entity* entity){
+    Game::Vector2 playerPos = g_entities[PLAYER_INDEX].position;
+
+    if(entity->type == EEntityType::Player){
+        return DISTANCE_IF_PLAYER;
+    }
+
+    float horizontalDistance = entity->position.x - playerPos.x;
+    float verticalDistance = entity->position.y - playerPos.y;
+
+    float sqrtA = sqrtf(horizontalDistance*horizontalDistance);
+    float sqrtB = sqrtf(verticalDistance*verticalDistance);
+
+    float distanceWithPlayer = sqrtA + sqrtB;
+    return distanceWithPlayer;
+}
+
+void HandleGameOver(float distanceWithPlayer){
+    if(distanceWithPlayer <= MORTAL_RADIUS){
+        g_isGameOver = true;
+        ClearBackground(RED);
+        DrawText("GAME OVER", WIDTH / 2.f, HEIGHT * 0.2f, 48, LIGHTGRAY);
+    }
+}
+
+void HandleRestartGame(){
+    if(g_isGameOver && IsKeyDown(KEY_R)){
+        ClearBackground(BLUE);
+        g_entities.clear();
+        SpawnPlayer();
+        SpawnEnemy();
+        g_isGameOver = false;
+    }
 }
 
 
 void Update(Entity* entity, float deltaTime) {
+    float distanceWithPlayer = CalculateDistanceWithPlayer(entity);
+    HandleGameOver(distanceWithPlayer);
+    HandleRestartGame();
     // Todas las updates a las entidades ANTES de dibujarlas
     HandleInput(entity, deltaTime);
     entity->draw(entity);
@@ -74,9 +125,11 @@ int main(void) {
         float deltaTime = GetFrameTime();
         int fps = GetFPS();
         DrawText(std::to_string(fps).c_str(), WIDTH / 2.f, HEIGHT * 0.1f, 48, LIGHTGRAY);
+
         for (Entity& entity : g_entities) {
             Update(&entity, deltaTime);
         }
+
         EndDrawing();
     }
 
