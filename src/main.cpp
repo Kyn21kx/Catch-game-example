@@ -9,10 +9,11 @@
 constexpr int32_t WIDTH = 1080;
 constexpr int32_t HEIGHT = 720;
 
-constexpr Color PLAYER_COLOR = BLACK; 
-constexpr Color ENEMY_COLOR = RED; 
-constexpr int MORTAL_RADIUS = 80;
-constexpr int PLAYER_INDEX = 0;
+constexpr Color PLAYER_COLOR = BLACK;
+constexpr Color ENEMY_COLOR = RED;
+constexpr int32_t MORTAL_RADIUS = 80;
+constexpr int32_t PLAYER_INDEX = 0;
+constexpr int32_t DISTANCE_IF_PLAYER = 1000;
 
 bool g_isGameOver = false;
 
@@ -21,7 +22,7 @@ std::vector<Entity> g_entities;
 
 
 void HandleInput(Entity* entity, float deltaTime) {
-    if(g_isGameOver == true) return;
+    if(g_isGameOver) return;
     if (entity->type != EEntityType::Player) return;
 
     if (IsKeyDown(KEY_W)) {
@@ -69,31 +70,46 @@ void Init() {
     SpawnEnemy();
 }
 
-void CalculateDistanceWithPlayer(Entity* entity){
+float CalculateDistanceWithPlayer(const Entity* entity){
     Game::Vector2 playerPos = g_entities[PLAYER_INDEX].position;
 
-    if(entity->type != EEntityType::Enemy){
-        return;
+    if(entity->type == EEntityType::Player){
+        return DISTANCE_IF_PLAYER;
     }
 
-    float a = entity->position.x - playerPos.x;
-    float b = entity->position.y - playerPos.y;
+    float horizontalDistance = entity->position.x - playerPos.x;
+    float verticalDistance = entity->position.y - playerPos.y;
 
-    float sqrtA = sqrt(a*a);
-    float sqrtB = sqrt(b*b);
+    float sqrtA = sqrtf(horizontalDistance*horizontalDistance);
+    float sqrtB = sqrtf(verticalDistance*verticalDistance);
 
-    float c = sqrtA + sqrtB;
+    float distanceWithPlayer = sqrtA + sqrtB;
+    return distanceWithPlayer;
+}
 
-    if(c <= MORTAL_RADIUS){
+void HandleGameOver(float distanceWithPlayer){
+    if(distanceWithPlayer <= MORTAL_RADIUS){
         g_isGameOver = true;
         ClearBackground(RED);
         DrawText("GAME OVER", WIDTH / 2.f, HEIGHT * 0.2f, 48, LIGHTGRAY);
     }
 }
 
+void HandleRestartGame(){
+    if(g_isGameOver && IsKeyDown(KEY_R)){
+        ClearBackground(BLUE);
+        g_entities.clear();
+        SpawnPlayer();
+        SpawnEnemy();
+        g_isGameOver = false;
+    }
+}
+
 
 void Update(Entity* entity, float deltaTime) {
-    CalculateDistanceWithPlayer(entity);
+    float distanceWithPlayer = CalculateDistanceWithPlayer(entity);
+    HandleGameOver(distanceWithPlayer);
+    HandleRestartGame();
     // Todas las updates a las entidades ANTES de dibujarlas
     HandleInput(entity, deltaTime);
     entity->draw(entity);
