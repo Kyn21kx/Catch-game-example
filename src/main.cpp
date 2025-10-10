@@ -2,6 +2,7 @@
 #include "Vector2.h"
 #include "raylib.h"
 #include <cstdint>
+#include <cstdio>
 #include <string>
 #include <vector>
 #include <cmath>
@@ -15,28 +16,62 @@ constexpr int32_t MORTAL_RADIUS = 80;
 constexpr int32_t PLAYER_INDEX = 0;
 constexpr int32_t DISTANCE_IF_PLAYER = 1000;
 
+#define PRINT_VEC(a) printf("(%.2f, %.2f)\n", a.x, a.y)
+
 bool g_isGameOver = false;
 
 std::vector<Entity> g_entities;
 
+float GetVectorMagnitude(const Game::Vector2& vector) {
+    return sqrtf((vector.x * vector.x) + (vector.y * vector.y));
+}
+
+Game::Vector2 NormalizedVector(const Game::Vector2& vector) {
+    float mag = GetVectorMagnitude(vector);
+    return Game::Vector2(vector.x / mag, vector.y / mag);
+}
 
 
 void HandleInput(Entity* entity, float deltaTime) {
     if(g_isGameOver) return;
     if (entity->type != EEntityType::Player) return;
 
+    Game::Vector2 velocity = Game::VEC2_ZERO;
+    
     if (IsKeyDown(KEY_W)) {
-        entity->position.y -= entity->moveSpeed * deltaTime;
+        velocity.y -= 1;
     }
     if (IsKeyDown(KEY_S)) {
-        entity->position.y+= entity->moveSpeed * deltaTime;
+        velocity.y += 1;
     }
     if (IsKeyDown(KEY_A)) {
-        entity->position.x-= entity->moveSpeed * deltaTime;
+        velocity.x -= 1;
     }
     if (IsKeyDown(KEY_D)) {
-        entity->position.x+= entity->moveSpeed * deltaTime;
+        velocity.x += 1;
     }
+
+    printf("La input del usuario raw: ");
+    PRINT_VEC(velocity);
+
+    if (velocity.x == 0.f && velocity.y == 0.f) {
+        return;
+    }
+
+    velocity = NormalizedVector(velocity);
+    printf("La input del usuario normalizada: ");
+    PRINT_VEC(velocity);
+    
+    velocity = velocity * entity->moveSpeed * deltaTime;
+    printf("La velocidad que se le agrega a position: ");
+    PRINT_VEC(velocity);
+    
+    printf("La posicion inicial: ");
+    PRINT_VEC(entity->position);
+    entity->position = entity->position + velocity;
+    
+    printf("La posicion final: ");
+    PRINT_VEC(entity->position);
 }
 
 void SpawnPlayer() {
@@ -107,6 +142,9 @@ void HandleRestartGame(){
 
 
 void Update(Entity* entity, float deltaTime) {
+    if (entity->type == EEntityType::Player) {
+    }
+    
     float distanceWithPlayer = CalculateDistanceWithPlayer(entity);
     HandleGameOver(distanceWithPlayer);
     HandleRestartGame();
