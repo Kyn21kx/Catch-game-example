@@ -13,12 +13,13 @@ constexpr int32_t HEIGHT = 720;
 constexpr Color PLAYER_COLOR = BLACK;
 constexpr Color ENEMY_COLOR = RED;
 constexpr int32_t MORTAL_RADIUS = 80;
-constexpr int32_t PLAYER_INDEX = 0;
+constexpr size_t PLAYER_INDEX = 0;
 constexpr int32_t DISTANCE_IF_PLAYER = 1000;
 
 #define PRINT_VEC(a) printf("(%.2f, %.2f)\n", a.x, a.y)
 
 bool g_isGameOver = false;
+float g_time = 0.f;
 
 std::vector<Entity> g_entities;
 
@@ -31,10 +32,13 @@ Game::Vector2 NormalizedVector(const Game::Vector2& vector) {
     return Game::Vector2(vector.x / mag, vector.y / mag);
 }
 
+Game::Vector2 GetDirectionTo(const Game::Vector2& from, const Game::Vector2& to) {
+    // Tienen magnitud 1
+    return NormalizedVector(to - from);
+}
 
-void HandleInput(Entity* entity, float deltaTime) {
-    if(g_isGameOver) return;
-    if (entity->type != EEntityType::Player) return;
+void HandlePlayer(Entity* entity, float deltaTime) {
+    if (g_isGameOver || entity->type != EEntityType::Player) return;
 
     Game::Vector2 velocity = Game::VEC2_ZERO;
     
@@ -51,27 +55,17 @@ void HandleInput(Entity* entity, float deltaTime) {
         velocity.x += 1;
     }
 
-    printf("La input del usuario raw: ");
-    PRINT_VEC(velocity);
 
     if (velocity.x == 0.f && velocity.y == 0.f) {
         return;
     }
 
     velocity = NormalizedVector(velocity);
-    printf("La input del usuario normalizada: ");
-    PRINT_VEC(velocity);
     
     velocity = velocity * entity->moveSpeed * deltaTime;
-    printf("La velocidad que se le agrega a position: ");
-    PRINT_VEC(velocity);
     
-    printf("La posicion inicial: ");
-    PRINT_VEC(entity->position);
     entity->position = entity->position + velocity;
     
-    printf("La posicion final: ");
-    PRINT_VEC(entity->position);
 }
 
 void SpawnPlayer() {
@@ -92,7 +86,8 @@ void SpawnEnemy() {
         .position = Game::Vector2(WIDTH / 2.f, HEIGHT / 3.f),
         .draw = [](Entity* self) {
             DrawCircle(self->position.x, self->position.y, 35, ENEMY_COLOR);
-        }
+        },
+        .moveSpeed = 200.f
     };
     g_entities.push_back(enemy);
 }
@@ -140,16 +135,38 @@ void HandleRestartGame(){
     }
 }
 
+void HandleEnemy(Entity* entity, float deltaTime) {
+    if (entity->type != EEntityType::Enemy) return;
+    // Find the player
+    const Entity& player = g_entities[PLAYER_INDEX];
+    const Game::Vector2& playerPos = player.position;
+    
+    // Find the direction
+    Game::Vector2 direction = GetDirectionTo(entity->position, playerPos);
+    entity->position = entity->position + (direction * entity->moveSpeed * deltaTime);
+}
 
 void Update(Entity* entity, float deltaTime) {
-    if (entity->type == EEntityType::Player) {
-    }
-    
     float distanceWithPlayer = CalculateDistanceWithPlayer(entity);
     HandleGameOver(distanceWithPlayer);
     HandleRestartGame();
     // Todas las updates a las entidades ANTES de dibujarlas
-    HandleInput(entity, deltaTime);
+    HandleEnemy(entity, deltaTime);
+    HandlePlayer(entity, deltaTime);
+    
+    if (entity->position.x > WIDTH) {
+        entity->position.x = 0.f;
+    }
+    else if (entity->position.x < 0.f) {
+        entity->position.x = WIDTH;
+    }
+    if (entity->position.y > HEIGHT) {
+        entity->position.y = 0.f;
+    }
+    else if (entity->position.y < 0.f) {
+        entity->position.y = HEIGHT;
+    }
+
     entity->draw(entity);
 }
 
@@ -161,6 +178,10 @@ int main(void) {
         // DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
         ClearBackground(BLUE);
         float deltaTime = GetFrameTime();
+        g_time += deltaTime;
+        if (g_isGameOver) {
+            deltaTime *= 0.f;
+        }
         int fps = GetFPS();
         DrawText(std::to_string(fps).c_str(), WIDTH / 2.f, HEIGHT * 0.1f, 48, LIGHTGRAY);
 
