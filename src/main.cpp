@@ -20,6 +20,7 @@ constexpr int32_t DISTANCE_IF_PLAYER = 1000;
 
 bool g_isGameOver = false;
 float g_time = 0.f;
+float g_lastSpawnTime = 0.f;
 
 std::vector<Entity> g_entities;
 
@@ -41,7 +42,7 @@ void HandlePlayer(Entity* entity, float deltaTime) {
     if (g_isGameOver || entity->type != EEntityType::Player) return;
 
     Game::Vector2 velocity = Game::VEC2_ZERO;
-    
+
     if (IsKeyDown(KEY_W)) {
         velocity.y -= 1;
     }
@@ -61,11 +62,11 @@ void HandlePlayer(Entity* entity, float deltaTime) {
     }
 
     velocity = NormalizedVector(velocity);
-    
+
     velocity = velocity * entity->moveSpeed * deltaTime;
-    
+
     entity->position = entity->position + velocity;
-    
+
 }
 
 void SpawnPlayer() {
@@ -80,10 +81,17 @@ void SpawnPlayer() {
     g_entities.push_back(player);
 }
 
+int32_t GetRandRange(int32_t min, int32_t max) {
+    return min + rand() % (max - min + 1);
+}
+
 void SpawnEnemy() {
+
+    float yPos = static_cast<float>(GetRandRange(0, HEIGHT));
+    float xPos = static_cast<float>(GetRandRange(0, HEIGHT));
     Entity enemy = {
         .type = EEntityType::Enemy,
-        .position = Game::Vector2(WIDTH / 2.f, HEIGHT / 3.f),
+        .position = Game::Vector2(xPos, yPos),
         .draw = [](Entity* self) {
             DrawCircle(self->position.x, self->position.y, 35, ENEMY_COLOR);
         },
@@ -97,7 +105,6 @@ void Init() {
     SetTargetFPS(60);
     g_entities.reserve(100);
     SpawnPlayer();
-    SpawnEnemy();
 }
 
 float CalculateDistanceWithPlayer(const Entity* entity){
@@ -130,7 +137,6 @@ void HandleRestartGame(){
         ClearBackground(BLUE);
         g_entities.clear();
         SpawnPlayer();
-        SpawnEnemy();
         g_isGameOver = false;
     }
 }
@@ -140,20 +146,28 @@ void HandleEnemy(Entity* entity, float deltaTime) {
     // Find the player
     const Entity& player = g_entities[PLAYER_INDEX];
     const Game::Vector2& playerPos = player.position;
-    
+
     // Find the direction
     Game::Vector2 direction = GetDirectionTo(entity->position, playerPos);
     entity->position = entity->position + (direction * entity->moveSpeed * deltaTime);
 }
 
+
 void Update(Entity* entity, float deltaTime) {
+    const int32_t wholeTime = static_cast<int32_t>(g_time);
+    if(wholeTime % 3 == 0 && wholeTime != g_lastSpawnTime){
+        printf("%f\n", g_time);
+        SpawnEnemy();
+        g_lastSpawnTime = wholeTime;
+    }
     float distanceWithPlayer = CalculateDistanceWithPlayer(entity);
     HandleGameOver(distanceWithPlayer);
     HandleRestartGame();
     // Todas las updates a las entidades ANTES de dibujarlas
     HandleEnemy(entity, deltaTime);
     HandlePlayer(entity, deltaTime);
-    
+
+
     if (entity->position.x > WIDTH) {
         entity->position.x = 0.f;
     }
