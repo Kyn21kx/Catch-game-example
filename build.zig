@@ -9,7 +9,8 @@ pub fn build(b: *std.Build) void {
     var targets = std.ArrayList(*std.Build.Step.Compile).init(b.allocator);
     targets.append(exe) catch @panic("OOM");
 
-    exe.addCSourceFile(.{ .file = b.path("src/main.cpp"), .flags = &[_][]const u8{"-std=c++20"}, .language = .cpp });
+    const sources = &[_][]const u8{ "src/main.cpp", "src/Application.cpp", "src/Systems.cpp" };
+    exe.addCSourceFiles(.{ .files = sources, .flags = &[_][]const u8{"-std=c++20"}, .language = .cpp });
 
     zcc.createStep(b, "cdb", targets.toOwnedSlice() catch @panic("OOM"));
 
